@@ -254,7 +254,7 @@ function initGame(level = 1) {
 // ── Level generation ────────────────────────────────────
 function generateLevel(lvl) {
   const cols = 80 + lvl * 20;
-  const rows = Math.ceil(H / TILE) + 1;
+  const rows = Math.floor(H / TILE); // e.g. 450/32 = 14 rows → ground rows 12,13 → y=384,416 (fits in canvas)
   const grid = Array.from({length: rows}, () => Array(cols).fill(0));
 
   // Ground
@@ -308,8 +308,11 @@ function generateLevel(lvl) {
 }
 
 function createPlayer(map) {
+  // Ground top is at row (rows-2), so spawn just above it
+  const groundY = (map.rows - 2) * TILE; // y pixel of ground surface
   return {
-    x: TILE * 3, y: (map.rows - 4) * TILE,
+    x: TILE * 3,
+    y: groundY - 34, // 32px tall + 2px buffer, lands on ground
     w: 24, h: 32,
     vx: 0, vy: 0,
     onGround: false,
@@ -327,7 +330,7 @@ function spawnEnemies(map, lvl) {
   for (let i = 0; i < count; i++) {
     const ex = (10 + Math.floor(Math.random() * (map.cols - 20))) * TILE;
     enemies.push({
-      x: ex, y: (map.rows - 3) * TILE,
+      x: ex, y: (map.rows - 2) * TILE - 30,
       w: 28, h: 28,
       vx: -(0.8 + Math.random() * 0.6),
       vy: 0, onGround: false,
