@@ -1,160 +1,233 @@
-<!DOCTYPE html><html lang="ko">
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title> Alphanam ~~~ 임연호 화이팅  Mario Style Game</title>
-<style>
-body { margin:0; overflow:hidden; background:#5c94fc; }
-canvas { display:block; margin:0 auto; background:#5c94fc; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Alphaman ~~~ 임연호 화이팅   Super Mario Web Remastered</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+        body { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Press Start 2P', cursive; overflow: hidden; }
+        
+        #game-container { position: relative; border: 4px solid #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #ui-layer { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; color: #fff; font-size: 12px; z-index: 5; text-shadow: 2px 2px #000; }
+        canvas { display: block; background: #5c94fc; image-rendering: pixelated; }
+        
+        #start-screen { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; color: #fff; }
+        .btn { padding: 15px 30px; background: #e83800; border: none; color: #fff; font-family: 'Press Start 2P'; cursor: pointer; margin-top: 20px; font-size: 16px; border-radius: 5px; }
+        .btn:hover { background: #ff5722; }
+
+        /* 모바일 컨트롤 */
+        #controls { display: none; position: absolute; bottom: 20px; width: 100%; justify-content: space-between; padding: 0 20px; }
+        .d-pad { display: flex; gap: 10px; }
+        .ctrl-btn { width: 60px; height: 60px; background: rgba(255,255,255,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; user-select: none; }
+        @media (max-width: 900px) { #controls { display: flex; } }
+    </style>
 </head>
 <body>
-<canvas id="game" width="800" height="450"></canvas><script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
 
-const GRAVITY = 0.6;
-const JUMP = -12;
+<div id="game-container">
+    <div id="ui-layer">
+        <div>MARIO<br><span id="score">000000</span></div>
+        <div>COINS<br>x<span id="coins">0</span></div>
+        <div>WORLD<br>1-1</div>
+        <div>TIME<br><span id="timer">400</span></div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="448"></canvas>
+    <div id="start-screen">
+        <h1 style="color: #ffd700; margin-bottom: 20px;">SUPER MARIO WEB</h1>
+        <p style="font-size: 10px;">[SPACE] TO JUMP | [ARROWS] TO MOVE</p>
+        <button class="btn" ON-CLICK="startGame()">START GAME</button>
+    </div>
+</div>
 
-const player = {
-  x:100,
-  y:0,
-  w:28,
-  h:32,
-  vx:0,
-  vy:0,
-  onGround:false,
-  dir:1
+<div id="controls">
+    <div class="d-pad">
+        <div class="ctrl-btn" id="leftBtn">◀</div>
+        <div class="ctrl-btn" id="rightBtn">▶</div>
+    </div>
+    <div class="ctrl-btn" id="jumpBtn" style="width: 80px; height: 80px; background: rgba(232, 56, 0, 0.6);">A</div>
+</div>
+
+<script>
+/** * 설정 및 상수
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const TILE_SIZE = 32;
+const GRAVITY = 0.8;
+const JUMP_POWER = -14;
+const GROUND_Y = canvas.height - TILE_SIZE * 2; // 바닥 높이 명확히 정의
+
+let gameState = "START";
+let score = 0;
+let coins = 0;
+let timeLeft = 400;
+
+/** * 플레이어 객체 (마리오)
+ */
+const mario = {
+    x: 100,
+    y: GROUND_Y - 32, // 바닥 바로 위에서 시작
+    w: 28,
+    h: 32,
+    vx: 0,
+    vy: 0,
+    speed: 4,
+    jumping: false,
+    grounded: false,
+    facing: 'right',
+    frame: 0
 };
 
-let cameraX = 0;
+/**
+ * 맵 데이터 (1: 바닥, 2: 벽돌, 3: 물음표 박스, 4: 파이프)
+ */
+const world = {
+    tiles: [],
+    width: 3000,
+    cameraX: 0
+};
 
+// 단순한 레벨 생성
+function initWorld() {
+    world.tiles = [];
+    // 바닥 타일
+    for(let i=0; i < 200; i++) {
+        world.tiles.push({x: i * TILE_SIZE, y: canvas.height - TILE_SIZE, type: 1});
+        world.tiles.push({x: i * TILE_SIZE, y: canvas.height - TILE_SIZE*2, type: 1});
+    }
+    // 장애물 및 박스
+    const structures = [
+        {x: 400, y: GROUND_Y - TILE_SIZE*4, type: 3},
+        {x: 500, y: GROUND_Y - TILE_SIZE*4, type: 2},
+        {x: 532, y: GROUND_Y - TILE_SIZE*4, type: 3},
+        {x: 564, y: GROUND_Y - TILE_SIZE*4, type: 2},
+        {x: 800, y: GROUND_Y - TILE_SIZE, type: 4}, // 파이프
+    ];
+    world.tiles.push(...structures);
+}
+
+/**
+ * 입력 처리
+ */
 const keys = {};
-addEventListener("keydown", e=>keys[e.code]=true);
-addEventListener("keyup", e=>keys[e.code]=false);
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
 
-// 맵 타일 (1=바닥)
-const TILE = 32;
-const level = [];
-for(let i=0;i<200;i++){
-  level.push(1);
+// 모바일 터치 이벤트
+function bindTouch(id, code) {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[code] = true; });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); keys[code] = false; });
 }
+bindTouch('leftBtn', 'ArrowLeft');
+bindTouch('rightBtn', 'ArrowRight');
+bindTouch('jumpBtn', 'Space');
 
-// 공중 블록
-const platforms = [
-  {x:300,y:300,w:100,h:20},
-  {x:500,y:250,w:100,h:20},
-  {x:750,y:200,w:100,h:20}
-];
+/**
+ * 업데이트 로직
+ */
+function update() {
+    if(gameState !== "PLAYING") return;
 
-// 적
-const enemies = [
-  {x:600,y:318,w:28,h:28,vx:-1,dead:false},
-  {x:900,y:318,w:28,h:28,vx:-1,dead:false}
-];
-
-function update(){
-  // 좌우 이동
-  if(keys["ArrowLeft"]){ player.vx = -4; player.dir=-1; }
-  else if(keys["ArrowRight"]){ player.vx = 4; player.dir=1; }
-  else player.vx *= 0.8;
-
-  // 점프
-  if(keys["Space"] && player.onGround){
-    player.vy = JUMP;
-    player.onGround = false;
-  }
-
-  // 물리
-  player.vy += GRAVITY;
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // 바닥 충돌
-  if(player.y + player.h > 350){
-    player.y = 350 - player.h;
-    player.vy = 0;
-    player.onGround = true;
-  }
-
-  // 플랫폼 충돌
-  platforms.forEach(p=>{
-    if(player.x < p.x+p.w && player.x+player.w > p.x &&
-       player.y+player.h < p.y+10 && player.y+player.h+player.vy >= p.y){
-        player.y = p.y - player.h;
-        player.vy = 0;
-        player.onGround = true;
+    // 이동
+    if (keys['ArrowLeft']) {
+        mario.vx = -mario.speed;
+        mario.facing = 'left';
+    } else if (keys['ArrowRight']) {
+        mario.vx = mario.speed;
+        mario.facing = 'right';
+    } else {
+        mario.vx *= 0.8;
     }
-  });
 
-  // 적
-  enemies.forEach(e=>{
-    if(e.dead) return;
-    e.x += e.vx;
-
-    if(hit(player,e)){
-      if(player.vy > 0){
-        e.dead = true;
-        player.vy = -8;
-      } else {
-        alert("게임오버");
-        location.reload();
-      }
+    // 점프
+    if (keys['Space'] && mario.grounded) {
+        mario.vy = JUMP_POWER;
+        mario.grounded = false;
     }
-  });
 
-  // 카메라
-  cameraX = player.x - 200;
+    // 중력 및 물리
+    mario.vy += GRAVITY;
+    mario.x += mario.vx;
+    mario.y += mario.vy;
+
+    // 바닥 충돌 체크
+    mario.grounded = false;
+    if (mario.y + mario.h > GROUND_Y) {
+        mario.y = GROUND_Y - mario.h;
+        mario.vy = 0;
+        mario.grounded = true;
+    }
+
+    // 맵 경계 제한
+    if (mario.x < 0) mario.x = 0;
+
+    // 카메라 추적
+    if (mario.x > canvas.width / 2) {
+        world.cameraX = mario.x - canvas.width / 2;
+    }
 }
 
-function hit(a,b){
-  return a.x < b.x+b.w &&
-         a.x+a.w > b.x &&
-         a.y < b.y+b.h &&
-         a.y+a.h > b.y;
+/**
+ * 렌더링 로직
+ */
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(-world.cameraX, 0);
+
+    // 배경 산/구름 (단순화)
+    ctx.fillStyle = "#4aa02c";
+    ctx.fillRect(200, GROUND_Y - 100, 150, 100);
+
+    // 타일 그리기
+    world.tiles.forEach(tile => {
+        if(tile.x + TILE_SIZE < world.cameraX || tile.x > world.cameraX + canvas.width) return;
+        
+        if(tile.type === 1) { // 지면
+            ctx.fillStyle = "#c84c0c";
+            ctx.fillRect(tile.x, tile.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = "#000";
+            ctx.strokeRect(tile.x, tile.y, TILE_SIZE, TILE_SIZE);
+        } else if(tile.type === 2) { // 벽돌
+            ctx.fillStyle = "#ab3916";
+            ctx.fillRect(tile.x, tile.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeRect(tile.x, tile.y, TILE_SIZE, TILE_SIZE);
+        } else if(tile.type === 3) { // 물음표 박스
+            ctx.fillStyle = "#ffcc00";
+            ctx.fillRect(tile.x, tile.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = "#000";
+            ctx.fillText("?", tile.x + 10, tile.y + 22);
+        }
+    });
+
+    // 마리오 그리기
+    ctx.fillStyle = "red";
+    ctx.fillRect(mario.x, mario.y, mario.w, mario.h);
+    
+    // 모자/눈 (디테일)
+    ctx.fillStyle = "brown";
+    ctx.fillRect(mario.facing === 'right' ? mario.x + 20 : mario.x + 2, mario.y + 10, 5, 5);
+
+    ctx.restore();
 }
 
-function draw(){
-  ctx.clearRect(0,0,800,450);
-
-  // 하늘
-  ctx.fillStyle="#5c94fc";
-  ctx.fillRect(0,0,800,450);
-
-  // 바닥
-  ctx.fillStyle="#c84b13";
-  ctx.fillRect(0,350,800,100);
-
-  // 플랫폼
-  ctx.fillStyle="#8b4513";
-  platforms.forEach(p=>{
-    ctx.fillRect(p.x - cameraX, p.y, p.w, p.h);
-  });
-
-  // 적
-  ctx.fillStyle="brown";
-  enemies.forEach(e=>{
-    if(!e.dead)
-      ctx.fillRect(e.x - cameraX, e.y, e.w, e.h);
-  });
-
-  // 마리오
-  ctx.fillStyle="red";
-  ctx.fillRect(player.x - cameraX, player.y, player.w, player.h);
-
-  // 눈
-  ctx.fillStyle="#fff";
-  ctx.fillRect(player.x - cameraX + 18, player.y+8, 5,5);
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
 }
 
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
+function startGame() {
+    document.getElementById('start-screen').style.display = 'none';
+    gameState = "PLAYING";
+    initWorld();
 }
-
-// 시작 위치 (바닥에서 시작)
-player.y = 350 - player.h;
 
 loop();
-</script></body>
+</script>
+</body>
 </html>
