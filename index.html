@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> !!! Alphanam ~~ 🍄 Super Mario Web</title>
+<title>🍄 Alphanam ~~ 🍄 Super Mario Web</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -256,7 +256,7 @@ function initGame(level = 1) {
     score: 0,
     coins: 0,
     lives: 3,
-    camera: { x: 0 },
+    camera: { x: 0, y: 0 },
     map,
     player: createPlayer(map),
     enemies: spawnEnemies(map, level),
@@ -714,7 +714,7 @@ function drawTiles(cam) {
     for (let c = startC; c < endC; c++) {
       const t = grid[r][c];
       if (!t) continue;
-      const sx = c * TILE - cam, sy = r * TILE;
+      const sx = c * TILE - cam, sy = r * TILE - state.camera.y;
       drawTile(t, sx, sy, r, c);
     }
   }
@@ -871,7 +871,7 @@ function drawPlayer(cam) {
   if (state.invincible > 0 && Math.floor(state.invincible / 4) % 2 === 0) return;
 
   const sx = Math.round(p.x - cam);
-  const sy = Math.round(p.y);
+  const sy = Math.round(p.y - state.camera.y);
   const flip = p.facing < 0;
 
   ctx.save();
