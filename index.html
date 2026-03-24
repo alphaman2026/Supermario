@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🍄 Super Mario Web</title>
+<title>🍄 Super Mario  Samsung Alphaman </title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -252,15 +252,20 @@ function initGame(level = 1) {
 }
 
 // ── Level generation ────────────────────────────────────
+// Ground top tile row: fixed so that (GROUND_ROW * TILE) fits inside canvas H=450
+// GROUND_ROW=12 → ground surface at y=384, fits well within 450px canvas
+const GROUND_ROW = 12;
+const TOTAL_ROWS = GROUND_ROW + 2; // rows 12=groundTop, 13=ground, total 14
+
 function generateLevel(lvl) {
   const cols = 80 + lvl * 20;
-  const rows = Math.floor(H / TILE); // e.g. 450/32 = 14 rows → ground rows 12,13 → y=384,416 (fits in canvas)
+  const rows = TOTAL_ROWS;
   const grid = Array.from({length: rows}, () => Array(cols).fill(0));
 
-  // Ground
+  // Ground — row GROUND_ROW = top surface, row GROUND_ROW+1 = underground fill
   for (let c = 0; c < cols; c++) {
-    grid[rows - 1][c] = 1; // ground
-    grid[rows - 2][c] = 2; // ground top
+    grid[GROUND_ROW][c]     = 2; // ground top (grass)
+    grid[GROUND_ROW + 1][c] = 1; // underground
   }
 
   // Gaps
@@ -270,18 +275,19 @@ function generateLevel(lvl) {
     const gw = 3 + Math.floor(Math.random() * 2);
     gaps.push({x: gx, w: gw});
     for (let c = gx; c < gx + gw && c < cols; c++) {
-      grid[rows - 1][c] = 0;
-      grid[rows - 2][c] = 0;
+      grid[GROUND_ROW][c]     = 0;
+      grid[GROUND_ROW + 1][c] = 0;
     }
   }
 
-  // Platforms & question blocks
+  // Platforms & question blocks (float above ground)
   for (let i = 0; i < 18 + lvl * 4; i++) {
     const c = 5 + Math.floor(Math.random() * (cols - 10));
-    const r = rows - 4 - Math.floor(Math.random() * 4);
+    const r = GROUND_ROW - 3 - Math.floor(Math.random() * 4); // 3~6 rows above ground
+    if (r < 1) continue;
     const len = 1 + Math.floor(Math.random() * 5);
     for (let j = 0; j < len && c + j < cols; j++) {
-      grid[r][c + j] = Math.random() < 0.2 ? 4 : 3; // 4=question, 3=brick
+      grid[r][c + j] = Math.random() < 0.2 ? 4 : 3;
     }
   }
 
@@ -289,30 +295,32 @@ function generateLevel(lvl) {
   const pipes = [];
   for (let i = 0; i < 4 + lvl; i++) {
     const px = 12 + Math.floor(Math.random() * (cols - 20));
-    const ph = 2 + Math.floor(Math.random() * 2);
-    pipes.push({x: px * TILE, y: (rows - 2 - ph) * TILE, w: TILE * 2, h: ph * TILE});
-    grid[rows - 2 - ph][px] = 5;
-    grid[rows - 2 - ph][px + 1] = 5;
-    for (let row = rows - 1 - ph; row <= rows - 2; row++) {
-      grid[row][px] = 6;
+    const ph = 2 + Math.floor(Math.random() * 2); // height in tiles
+    const pipeTopRow = GROUND_ROW - ph;
+    pipes.push({x: px * TILE, y: pipeTopRow * TILE, w: TILE * 2, h: ph * TILE});
+    grid[pipeTopRow][px]     = 5;
+    grid[pipeTopRow][px + 1] = 5;
+    for (let row = pipeTopRow + 1; row < GROUND_ROW; row++) {
+      grid[row][px]     = 6;
       grid[row][px + 1] = 6;
     }
   }
 
   // Flag at end
   const flagX = (cols - 4) * TILE;
-  const flagY = (rows - 8) * TILE;
+  const flagY = (GROUND_ROW - 7) * TILE;
 
   return { grid, rows, cols, pipes, gaps, flagX, flagY,
     width: cols * TILE, height: rows * TILE };
 }
 
 function createPlayer(map) {
-  // Ground top is at row (rows-2), so spawn just above it
-  const groundY = (map.rows - 2) * TILE; // y pixel of ground surface
+  // Ground surface pixel Y = GROUND_ROW * TILE = 12 * 32 = 384
+  // Player height = 32, so spawn at y = 384 - 32 = 352 (sitting right on top)
+  const spawnY = GROUND_ROW * TILE - 32;
   return {
     x: TILE * 3,
-    y: groundY - 34, // 32px tall + 2px buffer, lands on ground
+    y: spawnY,
     w: 24, h: 32,
     vx: 0, vy: 0,
     onGround: false,
@@ -330,7 +338,7 @@ function spawnEnemies(map, lvl) {
   for (let i = 0; i < count; i++) {
     const ex = (10 + Math.floor(Math.random() * (map.cols - 20))) * TILE;
     enemies.push({
-      x: ex, y: (map.rows - 2) * TILE - 30,
+      x: ex, y: GROUND_ROW * TILE - 28,
       w: 28, h: 28,
       vx: -(0.8 + Math.random() * 0.6),
       vy: 0, onGround: false,
@@ -940,11 +948,18 @@ function showStart() {
     <p>🍄 클래식 마리오 스타일 플랫포머</p>
     <div class="key-hint">
       ← → : 이동 &nbsp;|&nbsp; SPACE / ↑ : 점프<br>
-      Z : 달리기 &nbsp;|&nbsp; R : 재시작<br><br>
-      [ SPACE BAR 를 눌러 시작! ]
+      Z : 달리기 &nbsp;|&nbsp; R : 재시작
     </div>
+    <button class="ctrl-btn" id="btnStart" style="margin-top:22px;font-size:13px;padding:14px 32px;background:#00a800;border-color:#ffd700;">
+      ▶ 게임 시작
+    </button>
   `;
   overlay.style.display = 'flex';
+  document.getElementById('btnStart').addEventListener('pointerdown', startGame);
+}
+
+function startGame() {
+  initGame(1); state.running = true; hideOverlay();
 }
 
 window.restartGame = function() {
@@ -961,21 +976,23 @@ document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
   if (!state?.running) {
-    if (e.code === 'Space' || e.code === 'Enter') {
-      initGame(1); state.running = true; hideOverlay();
-    }
+    if (e.code === 'Space' || e.code === 'Enter') startGame();
   }
   if (e.code === 'KeyR') restartGame();
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 
 // Touch controls
-document.getElementById('btnLeft').addEventListener('pointerdown', () => touchKeys.left = true);
-document.getElementById('btnLeft').addEventListener('pointerup',   () => touchKeys.left = false);
-document.getElementById('btnRight').addEventListener('pointerdown',() => touchKeys.right = true);
-document.getElementById('btnRight').addEventListener('pointerup',  () => touchKeys.right = false);
-document.getElementById('btnJump').addEventListener('pointerdown', () => touchKeys.jump = true);
-document.getElementById('btnJump').addEventListener('pointerup',   () => touchKeys.jump = false);
+function bindBtn(id, key) {
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown',   () => { touchKeys[key] = true;  el.setPointerCapture(event.pointerId); });
+  el.addEventListener('pointerup',     () => touchKeys[key] = false);
+  el.addEventListener('pointercancel', () => touchKeys[key] = false);
+  el.addEventListener('pointerleave',  () => touchKeys[key] = false);
+}
+bindBtn('btnLeft',  'left');
+bindBtn('btnRight', 'right');
+bindBtn('btnJump',  'jump');
 
 // ── Game Loop ──────────────────────────────────────────────
 let last = 0;
