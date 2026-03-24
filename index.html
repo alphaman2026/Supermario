@@ -3,21 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🍄 Super Mario  Samsung Alphaman </title>
+<title>Samsung Alphanam  🍄 Super Mario Web</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #1a0a2e;
+    font-family: 'Press Start 2P', monospace;
+  }
 
   body {
-    background: #1a0a2e;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
-    font-family: 'Press Start 2P', monospace;
-    overflow: hidden;
   }
 
   /* Stars background */
@@ -31,10 +34,6 @@
       radial-gradient(1px 1px at 50% 10%, #fff 0%, transparent 100%),
       radial-gradient(1px 1px at 70% 80%, #fff 0%, transparent 100%),
       radial-gradient(1px 1px at 90% 40%, #fff 0%, transparent 100%),
-      radial-gradient(1px 1px at 20% 90%, #fff 0%, transparent 100%),
-      radial-gradient(1px 1px at 60% 50%, #fff 0%, transparent 100%),
-      radial-gradient(1px 1px at 80% 15%, #fff 0%, transparent 100%),
-      radial-gradient(1px 1px at 40% 75%, #fff 0%, transparent 100%),
       radial-gradient(2px 2px at 15% 45%, rgba(255,255,200,0.8) 0%, transparent 100%),
       radial-gradient(2px 2px at 85% 70%, rgba(255,255,200,0.8) 0%, transparent 100%);
     pointer-events: none;
@@ -44,22 +43,24 @@
   #gameWrapper {
     position: relative;
     z-index: 1;
+    /* width set by JS to match scaled canvas */
   }
 
   #scoreBar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 800px;
-    padding: 10px 16px;
-    background: rgba(0,0,0,0.7);
+    width: 100%;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.8);
     border: 3px solid #e8b000;
     border-bottom: none;
     border-radius: 8px 8px 0 0;
     color: #fff;
-    font-size: 10px;
+    font-size: 8px;
+    white-space: nowrap;
+    gap: 6px;
   }
-
   #scoreBar span { color: #ffd700; }
 
   #gameCanvas {
@@ -68,14 +69,13 @@
     border-top: none;
     border-radius: 0 0 8px 8px;
     image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    /* actual pixel size 800x450 — CSS size set by JS */
   }
 
   #overlay {
     position: absolute;
-    top: 44px;
-    left: 0;
-    width: 800px;
-    height: 450px;
+    top: 0; left: 0; right: 0; bottom: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -83,16 +83,17 @@
     background: rgba(10, 5, 30, 0.88);
     border-radius: 0 0 8px 8px;
     z-index: 10;
+    padding: 16px;
   }
 
   #overlay h1 {
-    font-size: 28px;
+    font-size: clamp(14px, 4vw, 28px);
     color: #ffd700;
-    text-shadow: 4px 4px #b22222, -2px -2px #8b0000;
-    margin-bottom: 16px;
+    text-shadow: 3px 3px #b22222, -2px -2px #8b0000;
+    margin-bottom: 12px;
+    text-align: center;
     animation: titlePulse 1.5s ease-in-out infinite alternate;
   }
-
   @keyframes titlePulse {
     from { transform: scale(1); }
     to   { transform: scale(1.06); }
@@ -100,66 +101,82 @@
 
   #overlay p {
     color: #aef;
-    font-size: 10px;
-    margin: 6px 0;
-    line-height: 2;
+    font-size: clamp(7px, 1.8vw, 10px);
+    margin: 4px 0;
+    text-align: center;
   }
 
   #overlay .key-hint {
     color: #ffd700;
     background: rgba(255,215,0,0.12);
-    padding: 12px 24px;
+    padding: 10px 16px;
     border: 2px solid #ffd700;
     border-radius: 6px;
-    font-size: 9px;
-    margin-top: 18px;
+    font-size: clamp(7px, 1.6vw, 9px);
+    margin-top: 12px;
     text-align: center;
     line-height: 2.2;
-    animation: blink 1s step-end infinite;
   }
 
-  @keyframes blink {
-    50% { opacity: 0.3; }
-  }
+  #livesBar { display: flex; gap: 4px; align-items: center; }
+  .marioIcon { font-size: 12px; }
 
-  #livesBar {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-
-  .marioIcon {
-    font-size: 14px;
-  }
-
+  /* ── Mobile D-pad controls ── */
   #controls {
-    margin-top: 10px;
+    position: relative;
+    z-index: 1;
+    margin-top: 8px;
+    width: 100%;
     display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px;
     gap: 8px;
-    width: 800px;
-    justify-content: center;
+    /* hidden on desktop, shown on touch */
+  }
+
+  .dpad {
+    display: flex;
+    gap: 6px;
   }
 
   .ctrl-btn {
     font-family: 'Press Start 2P', monospace;
-    font-size: 9px;
-    padding: 8px 14px;
-    background: #b22222;
+    font-size: 10px;
+    /* big tap targets for mobile */
+    width: 64px;
+    height: 64px;
+    background: rgba(180, 30, 30, 0.85);
     color: #fff;
     border: 3px solid #ffd700;
-    border-radius: 4px;
+    border-radius: 50%;
     cursor: pointer;
-    transition: background 0.1s, transform 0.1s;
+    user-select: none;
+    -webkit-user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, transform 0.08s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }
-  .ctrl-btn:hover { background: #e04040; }
-  .ctrl-btn:active { transform: scale(0.95); }
+  .ctrl-btn:active, .ctrl-btn.pressed {
+    background: rgba(220, 60, 60, 0.95);
+    transform: scale(0.92);
+  }
+  #btnJump {
+    width: 72px; height: 72px;
+    background: rgba(0, 140, 0, 0.85);
+    font-size: 18px;
+  }
+
+  @keyframes blink { 50% { opacity: 0.3; } }
 </style>
 </head>
 <body>
 <div id="gameWrapper">
   <div id="scoreBar">
     <div>SCORE: <span id="scoreVal">0</span></div>
-    <div>🍄 MARIO</div>
+    <div> 임연호 화이팅 !!!   🍄 MARIO</div>
     <div>COINS: <span id="coinVal">0</span></div>
     <div>LEVEL: <span id="levelVal">1</span></div>
     <div id="livesBar">LIVES: <span class="marioIcon">❤️</span><span class="marioIcon">❤️</span><span class="marioIcon">❤️</span></div>
@@ -177,9 +194,11 @@
   </div>
 </div>
 <div id="controls">
-  <button class="ctrl-btn" id="btnLeft">◀ 왼쪽</button>
-  <button class="ctrl-btn" id="btnJump">▲ 점프</button>
-  <button class="ctrl-btn" id="btnRight">오른쪽 ▶</button>
+  <div class="dpad">
+    <button class="ctrl-btn" id="btnLeft">◀</button>
+    <button class="ctrl-btn" id="btnRight">▶</button>
+  </div>
+  <button class="ctrl-btn" id="btnJump">▲</button>
 </div>
 
 <script>
@@ -315,12 +334,11 @@ function generateLevel(lvl) {
 }
 
 function createPlayer(map) {
-  // Ground surface pixel Y = GROUND_ROW * TILE = 12 * 32 = 384
-  // Player height = 32, so spawn at y = 384 - 32 = 352 (sitting right on top)
-  const spawnY = GROUND_ROW * TILE - 32;
+  // Spawn 2 tiles above ground — gravity carries him down and resolveEntity lands him
+  // GROUND_ROW=12 → ground top at y=384. Spawn at y=(12-2)*32=320, feet=352 (row 11)
   return {
     x: TILE * 3,
-    y: spawnY,
+    y: (GROUND_ROW - 2) * TILE,
     w: 24, h: 32,
     vx: 0, vy: 0,
     onGround: false,
@@ -397,10 +415,10 @@ function resolveEntity(ent) {
 
   ent.y += ent.vy;
   const y0 = Math.floor(ent.y / TILE);
-  const y1 = Math.floor((ent.y + ent.h - 1) / TILE);
-  const cx = Math.floor((ent.x + ent.w / 2) / TILE);
+  // y1: tile row of feet — use Math.ceil-1 so feet at exact tile boundary hit correctly
+  const y1 = Math.floor((ent.y + ent.h) / TILE);
   ent.onGround = false;
-  if (ent.vy > 0) {
+  if (ent.vy >= 0) {
     if (isSolid(Math.floor(ent.x / TILE), y1) || isSolid(Math.floor((ent.x + ent.w - 1) / TILE), y1)) {
       ent.y = y1 * TILE - ent.h; ent.vy = 0; ent.onGround = true;
     }
@@ -489,8 +507,8 @@ function updatePlayer(dt) {
 
   resolveEntity(p);
 
-  // Fall off
-  if (p.y > H + 100 + state.camera.x * 0) killPlayer();
+  // Fall off — use map height (game coords), not canvas CSS height
+  if (p.y > state.map.height + 64) killPlayer();
 
   // Flag
   if (!state.flagReached && p.x + p.w > state.map.flagX) {
@@ -1009,6 +1027,41 @@ function loop(ts) {
   draw();
   requestAnimationFrame(loop);
 }
+
+// ── Responsive canvas scaling ──────────────────────────────
+function resizeCanvas() {
+  const SCORE_H = 34;   // scoreBar height (approx)
+  const CTRL_H  = 90;   // controls area height
+  const PADDING = 16;
+
+  const maxW = window.innerWidth  - PADDING;
+  const maxH = window.innerHeight - SCORE_H - CTRL_H - PADDING;
+
+  // Maintain 800:450 (16:9) aspect ratio
+  let scale = Math.min(maxW / 800, maxH / 450);
+  scale = Math.max(scale, 0.3); // never too tiny
+
+  const cssW = Math.floor(800 * scale);
+  const cssH = Math.floor(450 * scale);
+
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+
+  const wrapper = document.getElementById('gameWrapper');
+  wrapper.style.width = cssW + 'px';
+
+  // overlay covers the canvas area only (below scoreBar)
+  const overlay = document.getElementById('overlay');
+  overlay.style.top    = SCORE_H + 'px';
+  overlay.style.height = cssH + 'px';
+}
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Prevent page scroll when touching controls
+document.getElementById('controls').addEventListener('touchstart', e => e.preventDefault(), {passive: false});
+document.getElementById('controls').addEventListener('touchmove',  e => e.preventDefault(), {passive: false});
 
 initGame(1);
 showStart();
