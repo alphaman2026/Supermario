@@ -20,7 +20,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   /* Stars background */
@@ -339,7 +339,7 @@ function createPlayer(map) {
   // GROUND_ROW=12 → ground top at y=384. Spawn at y=(12-2)*32=320, feet=352 (row 11)
   return {
     x: TILE * 3,
-    y: (GROUND_ROW * TITLE) - 32,
+    y: (GROUND_ROW - 2) - TILE,
     w: 24, h: 32,
     vx: 0, vy: 0,
     onGround: true,
